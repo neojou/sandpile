@@ -3,6 +3,10 @@
 **/build/
 !**/src/**/build/
 
+kotlin-js-store/wasm/yarn.lock
+
+.DS_Store
+
 .kotlin/
 .idea/
 *.iml
