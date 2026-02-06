@@ -22,6 +22,10 @@ class SandpileEngine(
     val size: Int,
     private val period: Duration = 25.milliseconds
 ) {
+    companion object {
+        private const val TAG = "SandpileEngine"
+    }
+
     private val board = GridsBoard(size)
 
     private val viewportMutex = Mutex()
@@ -58,7 +62,12 @@ class SandpileEngine(
     }
 
     fun start(scope: CoroutineScope) {
-        if (job != null) return
+        MyLog.add(TAG, "start()", LogLevel.DEBUG)
+        if (job != null) {
+            MyLog.add(TAG, "job($job) is not null, start() return", LogLevel.WARN)
+            return
+        }
+
         job = scope.launch(Dispatchers.Default) {
             while (isActive) {
                 val mark = TimeSource.Monotonic.markNow()

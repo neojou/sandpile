@@ -11,6 +11,10 @@ class SandpileViewModel(
     private val scope: CoroutineScope,
     boardSize: Int = 3967
 ) {
+    companion object {
+        private const val TAG = "SandpileViewModel"
+    }
+
     private val engine = SandpileEngine(size = boardSize)
 
     var snapshot by mutableStateOf(engine.snapshot.value)
@@ -101,8 +105,15 @@ class SandpileViewModel(
         pushViewport()
     }
 
-    fun zoomIn() = zoomByFactor(canvasW / 2f, canvasH / 2f, 1.2f)
-    fun zoomOut() = zoomByFactor(canvasW / 2f, canvasH / 2f, 1f / 1.2f)
+    fun zoomIn() {
+        MyLog.add(TAG, "zoomIn")
+        zoomByFactor(canvasW / 2f, canvasH / 2f, 1.2f)
+    }
+
+    fun zoomOut() {
+        MyLog.add(TAG, "zoomOut")
+        zoomByFactor(canvasW / 2f, canvasH / 2f, 1f / 1.2f)
+    }
 
     var paletteId by mutableStateOf(PaletteId.SCIFI)
         private set
