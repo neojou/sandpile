@@ -1,0 +1,1 @@
+sourceset_dependencies='{":/commonMain":[],":/desktopMain":[":/commonMain"],":/wasmJsMain":[":/webMain"],":/webMain":[":/commonMain"]}'

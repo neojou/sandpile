@@ -18,20 +18,47 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
+/**
+ * Sandpile simulation engine with periodic rendering to a viewport snapshot.
+ *
+ * The engine runs a background coroutine that:
+ * - Adds grains to the center cell for (roughly) one [period].
+ * - Renders a downsampled view of the board into a [ViewportSnapshot] based on the latest
+ *   [ViewportSpec] (if any).
+ * - Publishes the result via [snapshot] for UI consumption.
+ *
+ * Threading model:
+ * - The simulation loop runs on [Dispatchers.Default].
+ * - Viewport updates are guarded by [viewportMutex] to allow safe updates from other coroutines.
+ *
+ * @property size Board edge length (number of cells per row/column).
+ * @param period Time budget per loop iteration used to drive simulation steps.
+ */
 class SandpileEngine(
     val size: Int,
     private val period: Duration = 25.milliseconds
 ) {
     companion object {
+        /** Log tag for this engine. */
         private const val TAG = "SandpileEngine"
     }
 
+    /** Underlying sandpile board state. */
     private val board = GridsBoard(size)
 
+    /** Guards concurrent access to [viewport]. */
     private val viewportMutex = Mutex()
+
+    /** Latest viewport specification requested by the UI (nullable until first update). */
     private var viewport: ViewportSpec? = null
 
+    /**
+     * Active palette colors used for rendering.
+     *
+     * Indexing convention: `palette[height and 3]` -> `0xAARRGGBB`.
+     */
     val palette = Palettes.Default.colors
+
     /* 不動態改變 / 先 mark
     private val paletteMutex = Mutex()
     private var paletteColors: IntArray = Palettes.SciFi.colors
@@ -41,6 +68,11 @@ class SandpileEngine(
     }
     */
 
+    /**
+     * Internal mutable snapshot state.
+     *
+     * Initialized with a minimal non-zero canvas to avoid invalid downstream assumptions.
+     */
     private val _snapshot = MutableStateFlow(
         ViewportSnapshot(
             canvasW = 1, canvasH = 1,
@@ -53,14 +85,35 @@ class SandpileEngine(
             totalGrains = 0L
         )
     )
+
+    /**
+     * Latest rendered viewport snapshot suitable for UI rendering.
+     *
+     * This flow updates whenever the engine loop renders a new frame for the current viewport.
+     */
     val snapshot: StateFlow<ViewportSnapshot> = _snapshot.asStateFlow()
 
+    /** Background job created by [start], or null if not running. */
     private var job: Job? = null
 
+    /**
+     * Updates the current viewport specification used by the renderer.
+     *
+     * This is safe to call from any coroutine; the value is guarded by [viewportMutex].
+     *
+     * @param spec New viewport specification (canvas size, scale, and center position).
+     */
     suspend fun updateViewport(spec: ViewportSpec) {
         viewportMutex.withLock { viewport = spec }
     }
 
+    /**
+     * Starts the simulation loop in [scope].
+     *
+     * If the engine is already running (job is non-null), this function logs a warning and returns.
+     *
+     * @param scope Coroutine scope that owns the engine lifecycle.
+     */
     fun start(scope: CoroutineScope) {
         MyLog.add(TAG, "start()", LogLevel.DEBUG)
         if (job != null) {
@@ -88,11 +141,29 @@ class SandpileEngine(
         }
     }
 
+    /**
+     * Stops the engine loop if running.
+     *
+     * Cancels the background job and clears the job reference.
+     */
     fun stop() {
         job?.cancel()
         job = null
     }
 
+    /**
+     * Renders the given board [b] into a downsampled [ViewportSnapshot] for [spec].
+     *
+     * Rendering strategy:
+     * - Converts pixels to cells using `pxPerCell`.
+     * - Groups cells into blocks of [blockCells] to reduce work at small zoom levels.
+     * - Computes each block color by averaging cell colors (see [averageArgbBlock]).
+     *
+     * @param spec Viewport parameters (canvas size, scale, and center position).
+     * @param b Board to sample.
+     * @param palette Palette lookup table indexed by `height and 3`.
+     * @return A new [ViewportSnapshot] containing block colors and metadata.
+     */
     private fun renderViewport(spec: ViewportSpec, b: GridsBoard, palette: IntArray): ViewportSnapshot {
         val pxPerCell = spec.pxPerCell.coerceIn(0.01f, 200f)
         val blockCells = max(1, ceil(spec.minBlockPx / pxPerCell).toInt())
@@ -133,6 +204,19 @@ class SandpileEngine(
         )
     }
 
+    /**
+     * Computes the average ARGB color for a block of cells.
+     *
+     * Only cells within board bounds are included in the average.
+     * If the block contains no in-bounds cells, this returns opaque black (`0xFF000000`).
+     *
+     * @param b Board to sample.
+     * @param x0 Block origin X in cell coordinates.
+     * @param y0 Block origin Y in cell coordinates.
+     * @param blockCells Block width/height in cells.
+     * @param palette Palette lookup table indexed by `height and 3`.
+     * @return Averaged ARGB color for the block.
+     */
     private fun averageArgbBlock(b: GridsBoard, x0: Int, y0: Int, blockCells: Int, palette: IntArray): Int {
         var sr = 0L; var sg = 0L; var sb = 0L; var count = 0L
 

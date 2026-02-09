@@ -13,6 +13,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import kotlin.math.min
 
+private const val TAG = "SandpileBoard"
+
 @Composable
 fun SandpileBoard(
     vm: SandpileViewModel,

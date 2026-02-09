@@ -21,6 +21,21 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.input.key.*
 
+/**
+ * Main screen for the sandpile game UI.
+ *
+ * Layout:
+ * - A full-size [SandpileBoard] that renders the simulation output.
+ * - A control row with zoom buttons and a counter label.
+ *
+ * Interaction:
+ * - Zoom actions are delegated to [SandpileViewModel.zoomIn] and [SandpileViewModel.zoomOut].
+ * - The grain counter uses [SandpileViewModel.snapshot] (e.g., `totalGrains`) for display.
+ *
+ * The commented section contains a keyboard-driven palette switcher (currently disabled).
+ *
+ * @param vm View model that owns simulation state and exposes UI actions.
+ */
 @Composable
 fun SandpileScreen(vm: SandpileViewModel)
 {

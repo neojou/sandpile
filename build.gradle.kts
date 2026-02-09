@@ -4,6 +4,7 @@ plugins {
     kotlin("multiplatform") version "2.3.0"
     id("org.jetbrains.compose") version "1.10.0"
     id("org.jetbrains.kotlin.plugin.compose") version "2.3.0"
+    id("org.jetbrains.dokka") version "2.1.0"
 }
 
 group = "com.neojou.sandpile"
@@ -49,8 +50,18 @@ kotlin {
     }
 }
 
+dokka {
+    dokkaPublications {
+        html {
+            outputDirectory.set(layout.projectDirectory.dir("docs/api"))
+        }
+    }
+}
+
+
 compose.desktop {
     application {
         mainClass = "com.neojou.MainKt"
     }
 }
+
